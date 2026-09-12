@@ -29,6 +29,9 @@ export function Header({
         </Link>
         <SearchBox />
         <div className="header-meta">
+          <Link href="/portfolio" className="nav-link">
+            Portfolio
+          </Link>
           {status ? <MarketBadge status={status} label={statusLabel} /> : null}
           {lastUpdated ? <p className="updated">Last updated: {lastUpdated}</p> : null}
           {onRefresh ? (

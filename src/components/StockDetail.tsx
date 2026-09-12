@@ -11,6 +11,7 @@ import { formatInr, formatNumber, formatPercent } from "@/lib/format";
 import { formatIstTimestamp } from "@/lib/market-hours";
 import type { ChartLevel } from "@/lib/analysis/chart";
 import type { AnalysisResult, Snapshot } from "@/lib/market-data/types";
+import { useWatchlist } from "@/lib/watchlist/useWatchlist";
 
 function levelsFromAnalysis(analysis: AnalysisResult | null): ChartLevel[] {
   if (!analysis) return [];
@@ -51,6 +52,7 @@ export function StockDetail({ symbol }: { symbol: string }) {
     jsonFetcher<Snapshot>,
     { refreshInterval: market?.shouldAutoRefresh ? 5 * 60 * 1000 : 0, revalidateOnFocus: false },
   );
+  const watchlist = useWatchlist();
 
   async function refresh() {
     await mutate(async () => jsonFetcher<Snapshot>(`/api/snapshot/${symbol}?refresh=1`), {
@@ -95,6 +97,7 @@ export function StockDetail({ symbol }: { symbol: string }) {
   const up = quote.changePercent >= 0;
   const closed = quote.marketStatus !== "OPEN";
   const chartLevels = levelsFromAnalysis(analysis);
+  const saved = watchlist.has(data.symbol);
 
   return (
     <>
@@ -120,6 +123,13 @@ export function StockDetail({ symbol }: { symbol: string }) {
             <strong>{formatInr(quote.price)}</strong>
             <span className={up ? "chg up" : "chg down"}>{formatPercent(quote.changePercent)}</span>
             {closed ? <p className="muted">Last price · not live</p> : <p className="muted">Live during market hours</p>}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => (saved ? watchlist.remove(data.symbol) : watchlist.add(data.symbol))}
+            >
+              {saved ? "Remove from watchlist" : "Add to watchlist"}
+            </button>
           </div>
         </section>
 

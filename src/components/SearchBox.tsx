@@ -3,28 +3,46 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { SearchResult } from "@/lib/market-data/types";
+import { useWatchlist } from "@/lib/watchlist/useWatchlist";
 
-export function SearchBox() {
+export function SearchBox({
+  onSelect,
+  placeholder = "Search SBI ETF, HDFC, RELIANCE…",
+  inputId = "stock-search",
+}: {
+  onSelect?: (result: SearchResult) => void;
+  placeholder?: string;
+  inputId?: string;
+}) {
   const router = useRouter();
+  const watchlist = useWatchlist();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<{ query: string; items: SearchResult[] }>({
+    query: "",
+    items: [],
+  });
   const [active, setActive] = useState(0);
   const boxRef = useRef<HTMLDivElement>(null);
-  const visibleResults = query.trim() ? results : [];
+  const trimmed = query.trim();
+  const visible = results.query === trimmed ? results.items : [];
+  const searching = Boolean(trimmed) && results.query !== trimmed;
 
   useEffect(() => {
-    const trimmed = query.trim();
     if (!trimmed) return;
+    const requested = trimmed;
     const handle = setTimeout(async () => {
-      const response = await fetch(`/api/search?q=${encodeURIComponent(trimmed)}`);
-      const data = (await response.json()) as SearchResult[];
-      setResults(data);
-      setOpen(true);
-      setActive(0);
+      try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(requested)}`);
+        const data = (await response.json()) as SearchResult[];
+        setResults({ query: requested, items: Array.isArray(data) ? data : [] });
+        setActive(0);
+      } catch {
+        setResults({ query: requested, items: [] });
+      }
     }, 180);
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [trimmed]);
 
   useEffect(() => {
     function onClick(event: MouseEvent) {
@@ -34,73 +52,79 @@ export function SearchBox() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  function go(symbol: string) {
+  function choose(result: SearchResult) {
     setOpen(false);
     setQuery("");
-    router.push(`/stock/${symbol}`);
+    if (onSelect) {
+      onSelect(result);
+      return;
+    }
+    router.push(`/stock/${result.symbol}`);
   }
 
-  async function onSubmit(event: FormEvent) {
+  function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (visibleResults[active]) {
-      go(visibleResults[active].symbol);
-      return;
-    }
-    const typed = query.trim();
-    if (!typed) return;
-    const response = await fetch(`/api/search?q=${encodeURIComponent(typed)}`);
-    const data = (await response.json()) as SearchResult[];
-    if (data[0]) {
-      go(data[0].symbol);
-      return;
-    }
-    go(typed.toUpperCase());
+    if (visible[active]) choose(visible[active]);
   }
 
   return (
     <div ref={boxRef} className="search-wrap">
       <form onSubmit={onSubmit} role="search">
-        <label className="sr-only" htmlFor="stock-search">
-          Search NSE stocks
+        <label className="sr-only" htmlFor={inputId}>
+          Search NSE stocks and ETFs
         </label>
         <input
-          id="stock-search"
+          id={inputId}
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onFocus={() => visibleResults.length && setOpen(true)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => trimmed && setOpen(true)}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown") {
               event.preventDefault();
-              setActive((index) => Math.min(index + 1, Math.max(visibleResults.length - 1, 0)));
+              setActive((index) => Math.min(index + 1, Math.max(visible.length - 1, 0)));
             }
             if (event.key === "ArrowUp") {
               event.preventDefault();
               setActive((index) => Math.max(index - 1, 0));
             }
           }}
-          placeholder="Search HDFC, KAYNES, RELIANCE…"
+          placeholder={placeholder}
           autoComplete="off"
         />
       </form>
-      {open && query.trim() ? (
-        <ul className="search-results">
-          {visibleResults.length === 0 ? (
-            <li className="search-empty">No matching NSE stocks.</li>
-          ) : (
-            visibleResults.map((item, index) => (
+      {open && trimmed ? (
+        <ul className="search-results" role="listbox">
+          {searching ? <li className="search-empty">Searching…</li> : null}
+          {!searching && visible.length === 0 ? <li className="search-empty">No matching NSE stock or ETF.</li> : null}
+          {visible.map((item, index) => {
+            const saved = watchlist.has(item.symbol);
+            return (
               <li key={item.symbol}>
                 <button
                   type="button"
+                  role="option"
+                  aria-selected={index === active}
                   className={index === active ? "active" : undefined}
                   onMouseEnter={() => setActive(index)}
-                  onClick={() => go(item.symbol)}
+                  onClick={() => choose(item)}
                 >
                   <strong>{item.symbol}</strong>
                   <span>{item.name}</span>
                 </button>
+                <button
+                  type="button"
+                  className="search-add"
+                  title={saved ? "On watchlist" : "Add to watchlist"}
+                  onClick={() => (saved ? watchlist.remove(item.symbol) : watchlist.add(item.symbol))}
+                >
+                  {saved ? "Added" : "Add"}
+                </button>
               </li>
-            ))
-          )}
+            );
+          })}
         </ul>
       ) : null}
     </div>

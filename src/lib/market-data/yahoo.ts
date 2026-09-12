@@ -16,14 +16,13 @@ import {
   searchCatalog,
   toYahooSymbol,
 } from "@/lib/symbols/catalog";
+import { isNseListedQuote, mergeSearchResults } from "@/lib/symbols/search";
 import { toIstIso } from "@/lib/market-hours";
 
 const yahooFinance = new YahooFinance({
   validation: { logErrors: false, logOptionsErrors: false },
   suppressNotices: ["yahooSurvey"],
 });
-
-const NSE_EXCHANGES = new Set(["NSI", "NSE", "NATIONAL STOCK EXCHANGE OF INDIA"]);
 
 function asNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
@@ -68,19 +67,23 @@ export async function resolveValidatedSymbol(input: string): Promise<string> {
 async function searchYahooNse(query: string): Promise<SearchResult[]> {
   try {
     const result = await yahooFinance.search(query, {
-      quotesCount: 12,
+      quotesCount: 20,
       newsCount: 0,
       enableFuzzyQuery: true,
     });
     const matches: SearchResult[] = [];
     for (const quote of result.quotes ?? []) {
-      const symbol = asString((quote as { symbol?: string }).symbol);
-      if (!symbol) continue;
-      const exchange = `${asString((quote as { exchange?: string }).exchange) ?? ""} ${asString((quote as { exchDisp?: string }).exchDisp) ?? ""}`.toUpperCase();
-      const isNse =
-        symbol.toUpperCase().endsWith(".NS") ||
-        [...NSE_EXCHANGES].some((code) => exchange.includes(code));
-      if (!isNse) continue;
+      const row = quote as {
+        symbol?: string;
+        exchange?: string;
+        exchDisp?: string;
+        quoteType?: string;
+        typeDisp?: string;
+        shortname?: string;
+        longname?: string;
+      };
+      const symbol = asString(row.symbol);
+      if (!symbol || !isNseListedQuote(row)) continue;
       const nseSymbol = fromYahooSymbol(symbol);
       const instrument = getInstrument(nseSymbol);
       matches.push({
@@ -174,18 +177,11 @@ export class YahooMarketDataProvider implements MarketDataProvider {
 
   async search(query: string): Promise<SearchResult[]> {
     const local = searchCatalog(query, 8);
-    const known = new Set(local.map((item) => item.symbol));
     try {
-      const remote = await searchYahooNse(query);
-      for (const item of remote) {
-        if (known.has(item.symbol) || local.length >= 8) continue;
-        local.push(item);
-        known.add(item.symbol);
-      }
+      return mergeSearchResults(local, await searchYahooNse(query), 10);
     } catch {
-      // Catalog results are still useful if the remote search fails.
+      return local;
     }
-    return local.slice(0, 8);
   }
 
   async getFundamentals(symbol: string): Promise<Fundamentals | null> {

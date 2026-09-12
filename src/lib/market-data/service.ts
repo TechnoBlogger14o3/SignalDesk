@@ -12,6 +12,7 @@ import type {
 } from "@/lib/market-data/types";
 import { formatIstTimestamp, getMarketClock, historyCacheTtlMs, quoteCacheTtlMs } from "@/lib/market-hours";
 import { WATCHLIST_SYMBOLS, getInstrument, resolveNseSymbol } from "@/lib/symbols/catalog";
+import { sanitizeSymbols } from "@/lib/watchlist/storage";
 
 function toQuoteResponse(
   quote: Quote,
@@ -124,11 +125,13 @@ async function mapPool<T, R>(items: readonly T[], limit: number, fn: (item: T) =
   return results;
 }
 
-export async function getWatchlist(refresh = false): Promise<Snapshot[]> {
-  const results = await mapPool(WATCHLIST_SYMBOLS, 3, (symbol) => getSnapshot(symbol, { refresh }));
+export async function getWatchlist(refresh = false, symbols: readonly string[] = WATCHLIST_SYMBOLS): Promise<Snapshot[]> {
+  const list = sanitizeSymbols([...symbols]);
+  if (list.length === 0) return [];
+  const results = await mapPool(list, 3, (symbol) => getSnapshot(symbol, { refresh }));
   return results.flatMap((result, index) => {
     if (result.status === "fulfilled") return [result.value];
-    const symbol = WATCHLIST_SYMBOLS[index];
+    const symbol = list[index];
     const instrument = getInstrument(symbol);
     const cachedQuote = readCache<Quote>(`quote:${symbol}`);
     if (!cachedQuote) return [];

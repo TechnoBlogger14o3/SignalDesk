@@ -2,6 +2,10 @@
 
 SignalDesk is an Indian stock-market analysis dashboard. It shows **current price**, **near-term targets**, a **long-term scenario target**, and **entry/exit guidance** from live market data.
 
+This is not investment advice. Targets are analytical scenarios, not guaranteed predictions.
+
+Released under the [MIT License](LICENSE).
+
 The browser never talks to Yahoo Finance or any market-data vendor. All market calls go:
 
 `Frontend → Next.js API routes → market-data provider (default: Yahoo Finance on the server)`
@@ -64,9 +68,9 @@ Add `?refresh=1` to bypass TTL and fetch again. If the vendor fails, cached pric
 
 ## Pages
 
-- `/` Important Stocks watchlist and search
+- `/` Watchlist. Search as you type, then **Add**. The list is stored in this browser (`localStorage`), starting from a default set of liquid NSE names.
 - `/stock/HDFCBANK` full setup, chart, scores, and scenarios
-- `/portfolio` separate test holdings (HDFC Bank 900 @ ₹768, Kaynes 29 @ ₹3,405)
+- `/portfolio` editable lots in this browser (starts with a small demo book you can change)
 
 ## Market hours
 
@@ -103,6 +107,6 @@ npm run build
 
 ## Notes
 
-- Search understands aliases such as `HDFC` → `HDFCBANK`, `SBI` → `SBIN`, `KAYNES` → Kaynes Technology.
+- Search understands aliases such as `HDFC` → `HDFCBANK`, `SBI` → `SBIN`, `SBI ETF` → `SETFNIF50`, `KAYNES` → Kaynes Technology. The dropdown also asks Yahoo for other NSE stocks and ETFs as you type.
 - Arbitrary input is not assumed to be an NSE symbol. `.NS` is added only after the symbol is validated.
 - If a live quote cannot be fetched, the UI shows the last available price and last successful update, with Retry.

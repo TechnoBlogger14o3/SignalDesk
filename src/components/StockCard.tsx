@@ -3,7 +3,13 @@ import type { Snapshot } from "@/lib/market-data/types";
 import { formatInr, formatPercent } from "@/lib/format";
 import { RiskBadge, SignalBadge } from "@/components/Badges";
 
-export function StockCard({ snapshot }: { snapshot: Snapshot }) {
+export function StockCard({
+  snapshot,
+  onRemove,
+}: {
+  snapshot: Snapshot;
+  onRemove?: () => void;
+}) {
   const { quote, analysis } = snapshot;
   const up = quote.changePercent >= 0;
   const t1 = analysis?.targets.t1;
@@ -11,7 +17,8 @@ export function StockCard({ snapshot }: { snapshot: Snapshot }) {
   const lt = analysis?.targets.longTerm;
 
   return (
-    <Link href={`/stock/${snapshot.symbol}`} className="stock-card">
+    <article className="stock-card">
+      <Link href={`/stock/${snapshot.symbol}`} className="card-link">
       <div className="card-top">
         <div>
           <h3>{snapshot.name}</h3>
@@ -55,7 +62,13 @@ export function StockCard({ snapshot }: { snapshot: Snapshot }) {
         ) : null}
         {quote.stale || quote.error ? <span className="stale">Cached</span> : null}
       </div>
-    </Link>
+      </Link>
+      {onRemove ? (
+        <button type="button" className="card-remove" onClick={onRemove} title="Remove from watchlist">
+          Remove
+        </button>
+      ) : null}
+    </article>
   );
 }
 

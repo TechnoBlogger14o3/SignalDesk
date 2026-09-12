@@ -136,6 +136,19 @@ export const NSE_CATALOG: NseInstrument[] = [
   { symbol: "OFSS", name: "Oracle Financial Services", aliases: ["OFSS", "ORACLE FINANCIAL"] },
   { symbol: "MPHASIS", name: "Mphasis", aliases: ["MPHASIS"] },
   { symbol: "LTTS", name: "L&T Technology Services", aliases: ["LTTS"] },
+  {
+    symbol: "SETFNIF50",
+    name: "SBI Nifty 50 ETF",
+    aliases: ["SBI ETF", "SBI NIFTY ETF", "SBI NIFTY 50 ETF", "SETFNIFTY", "SBI NIFTY50 ETF"],
+  },
+  {
+    symbol: "SETFNIFBK",
+    name: "SBI Nifty Bank ETF",
+    aliases: ["SBI BANK ETF", "SBI NIFTY BANK ETF"],
+  },
+  { symbol: "NIFTYBEES", name: "Nippon India Nifty 50 BeES", aliases: ["NIFTY BEES", "NIFTYBEES"] },
+  { symbol: "GOLDBEES", name: "Nippon India Gold BeES", aliases: ["GOLD BEES", "GOLDBEES"] },
+  { symbol: "BANKBEES", name: "Nippon India Bank BeES", aliases: ["BANK BEES", "BANKBEES"] },
 ];
 
 const SYMBOL_INDEX = new Map<string, NseInstrument>();
