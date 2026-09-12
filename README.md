@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SignalDesk
 
-## Getting Started
+SignalDesk is an Indian stock-market analysis dashboard. It shows **current price**, **near-term targets**, a **long-term scenario target**, and **entry/exit guidance** from live market data.
 
-First, run the development server:
+The browser never talks to Yahoo Finance or any market-data vendor. All market calls go:
+
+`Frontend → Next.js API routes → market-data provider (default: Yahoo Finance on the server)`
+
+Targets are analytical scenarios, not guaranteed predictions.
+
+## Stack
+
+- Next.js 16 (App Router) + TypeScript
+- React 19
+- SQLite cache via Node's built-in `node:sqlite`
+- Yahoo Finance through `yahoo-finance2` on the server
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000).
+
+The default provider does **not** need an API key. Yahoo Finance is queried only from the backend.
+
+## Environment variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `MARKET_DATA_PROVIDER` | No | `yahoo` (default) or `rest` |
+| `MARKET_DATA_API_KEY` | Only for `rest` | Sent as `Authorization: Bearer …` |
+| `MARKET_DATA_BASE_URL` | Only for `rest` | Base URL of a replaceable market-data service |
+| `MARKET_DATA_CACHE_PATH` | No | SQLite cache file. Default: `data/cache.sqlite` |
+| `TECH_WEIGHT_*` | No | Technical score weights |
+
+Never put vendor secrets in frontend code or `NEXT_PUBLIC_*` variables.
+
+### Swapping the market-data provider
+
+Set `MARKET_DATA_PROVIDER=rest` and point `MARKET_DATA_BASE_URL` at a service that exposes:
+
+- `GET /quote/{symbol}`
+- `GET /history/{symbol}`
+- `GET /search?q=`
+- `GET /fundamentals/{symbol}` (optional; omitted fields are skipped)
+
+The frontend does not change.
+
+## API
+
+- `GET /api/quote/HDFCBANK`
+- `GET /api/history/HDFCBANK`
+- `GET /api/search?q=HDFC`
+- `GET /api/snapshot/HDFCBANK`
+- `GET /api/watchlist`
+- `GET /api/market-status`
+- `GET /api/portfolio` (test holdings only; not shown on the home page)
+
+Add `?refresh=1` to bypass TTL and fetch again. If the vendor fails, cached prices are returned when available.
+
+## Pages
+
+- `/` Important Stocks watchlist and search
+- `/stock/HDFCBANK` full setup, chart, scores, and scenarios
+- `/portfolio` separate test holdings (HDFC Bank 900 @ ₹768, Kaynes 29 @ ₹3,405)
+
+## Market hours
+
+NSE session handling uses IST:
+
+- Pre-open: 09:00–09:15
+- Open: 09:15–15:30
+- Post-market: 15:30–16:00
+- Closed otherwise, including weekends and 2026 NSE holidays
+
+Auto-refresh runs every 5 minutes only while the market is open. Use **Refresh now** at any time.
+
+## Analysis
+
+Technical score (configurable weights):
+
+- Trend 35%
+- Momentum 20%
+- Volume 15%
+- Breakout 15%
+- Support/resistance 15%
+
+Entry states: `ENTRY NOW`, `BUY ON DIP`, `ACCUMULATE`, `WAIT`, `HOLD`, `REDUCE`, `EXIT`.
+
+Long-term targets use reported growth / valuation when Yahoo provides them, otherwise the 200-day trend. Missing fundamentals are omitted rather than invented.
+
+## Scripts
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm test
+npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Notes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Search understands aliases such as `HDFC` → `HDFCBANK`, `SBI` → `SBIN`, `KAYNES` → Kaynes Technology.
+- Arbitrary input is not assumed to be an NSE symbol. `.NS` is added only after the symbol is validated.
+- If a live quote cannot be fetched, the UI shows the last available price and last successful update, with Retry.
